@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
@@ -51,15 +53,28 @@ func (jq *JobQueue) asyRunJob() {
 	go func() {
 		for {
 			has, node := jq.Queue.Poll()
-			if has {
-				jq.CurrentJob = node.(*JobRunParam)
-				jq.Callback(jq.CurrentJob.LogId, jq.CurrentJob.LogDateTime, jq.Execute(jq.JobId, jq.GlueType, jq.CurrentJob))
-			} else {
+			if !has {
 				jq.StopJob()
 				break
 			}
+
+			jq.CurrentJob = node.(*JobRunParam)
+			jq.Callback(jq.CurrentJob.LogId, jq.CurrentJob.LogDateTime, jq.safeExecute(jq.JobId, jq.GlueType, jq.CurrentJob))
 		}
 	}()
+}
+
+func (jq *JobQueue) safeExecute(jobId int32, glueType string, job *JobRunParam) (result error) {
+	defer func() {
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("Job execution panic: %v, JobId: %d, LogId: %d\nStack trace: %s",
+				r, jobId, job.LogId, debug.Stack())
+			ctx := context.WithValue(context.Background(), "jobParam", job)
+			logger.Info(ctx, errMsg)
+			result = fmt.Errorf("job execution failed: %v", r)
+		}
+	}()
+	return jq.Execute(jobId, glueType, job)
 }
 
 type JobHandler struct {
