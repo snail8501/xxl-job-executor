@@ -116,7 +116,10 @@ func (r *RequestProcess) RequestProcess(ctx *fasthttp.RequestCtx) {
 			returnt.Code = http.StatusInternalServerError
 			returnt.Msg = err.Error()
 		}
-		go r.pushJob(ta)
+
+		if ta != nil {
+			go r.pushJob(ta)
+		}
 	}
 
 	bytes, _ := json.Marshal(&returnt)

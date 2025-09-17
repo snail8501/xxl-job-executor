@@ -56,7 +56,15 @@ func (s *ScriptHandler) ParseJob(trigger *transport.TriggerParam) (jobParam *Job
 		jobParamMap["logParam"] = logParam
 		ctx := context.WithValue(context.Background(), "jobParam", jobParamMap)
 
-		msg := "暂不支持" + strings.ToLower(trigger.GlueType[constants.GluePrefixLen:]) + "脚本"
+		var msg string
+		gluePrefixLen := constants.GluePrefixLen
+		if len(trigger.GlueType) > gluePrefixLen {
+			scriptType := strings.ToLower(trigger.GlueType[gluePrefixLen:])
+			msg = "暂不支持 " + scriptType + " 脚本"
+		} else {
+			msg = "GlueType 格式无效，无法解析脚本类型"
+		}
+
 		logger.Info(ctx, "job parse error:", msg)
 		return jobParam, errors.New(msg)
 	}
